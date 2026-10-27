@@ -38,7 +38,7 @@
         .hud-top { display: flex; justify-content: space-between; align-items: flex-start; }
         .mission-box { background: rgba(17, 24, 39, 0.8); border-left: 4px solid #f59e0b; padding: 1rem; border-radius: 0 8px 8px 0; backdrop-filter: blur(8px); max-width: 320px; }
         .mission-box h4 { font-size: 0.8rem; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.2rem; }
-        .mission-box p { font-size: 0.95krem; font-weight: 500; color: #f3f4f6; }
+        .mission-box p { font-size: 0.95rem; font-weight: 500; color: #f3f4f6; }
 
         .hud-right { display: flex; flex-direction: column; gap: 0.8rem; align-items: flex-end; }
         .stat-badge { background: rgba(17, 24, 39, 0.8); padding: 0.6rem 1rem; border-radius: 8px; backdrop-filter: blur(8px); font-size: 0.9rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 0.5rem; }
@@ -76,8 +76,8 @@
         .spinner { width: 50px; height: 50px; border: 4px solid rgba(245, 158, 11, 0.2); border-top-color: #f59e0b; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
-    <!-- Three.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Updated Three.js CDN to r152 (Supports CapsuleGeometry) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
 </head>
 <body>
 
@@ -291,7 +291,6 @@
         }
 
         function showDialogue(title, text) {
-            const prev = gameState;
             gameState = 'dialogue';
             document.getElementById('dialogue-title').innerText = title;
             document.getElementById('dialogue-text').innerText = text;
@@ -338,7 +337,7 @@
             const skyColors = {
                 morning: { sky: 0xfde047, ground: 0x1e3a8a, light: 0xffedd5, intensity: 1.2, fog: 0xc4b5fd },
                 midday:  { sky: 0x38bdf8, ground: 0x166534, light: 0xffffff, intensity: 1.8, fog: 0xbae6fd },
-                sunset:  { sky: 0xf97316, ground: 0x7c2d12, light: 0xfdb_a74, intensity: 1.4, fog: 0xfed7aa },
+                sunset:  { sky: 0xf97316, ground: 0x7c2d12, light: 0xfdba74, intensity: 1.4, fog: 0xfed7aa },
                 storm:   { sky: 0x334155, ground: 0x0f172a, light: 0x94a3b8, intensity: 0.6, fog: 0x1e293b }
             };
             const cfg = skyColors[val];
@@ -350,7 +349,7 @@
             dirLight.intensity = cfg.intensity;
 
             if (val === 'storm') {
-                if (!rainParticles) createRain();
+                if (!rainParticles) createRainSystem();
                 rainParticles.visible = true;
             } else if (rainParticles) {
                 rainParticles.visible = false;
@@ -433,11 +432,10 @@
                 const dist = Math.sqrt(x*x + z*z);
                 let y = 0;
                 if (dist < 100) {
-                    // Island dome shape with noise
                     y = Math.cos(dist * Math.PI / 200) * 15 + Math.sin(x * 0.05) * Math.cos(z * 0.05) * 3;
-                    if (y < 0.5) y = 0.5; // Beach line
+                    if (y < 0.5) y = 0.5;
                 } else {
-                    y = -2; // Underwater dropoff
+                    y = -2;
                 }
                 pos.setY(i, y);
             }
@@ -516,7 +514,7 @@
         }
 
         function spawnResource(type, x, z, yOffset) {
-            let color = 0xd97706; // wood
+            let color = 0xd97706;
             let geo = new THREE.CylinderGeometry(0.2, 0.2, 2, 5);
             if (type === 'stone') { color = 0x64748b; geo = new THREE.DodecahedronGeometry(0.6); }
             if (type === 'fruit') { color = 0xef4444; geo = new THREE.SphereGeometry(0.4, 8, 8); }
@@ -589,7 +587,6 @@
                 if (e.code === 'Space') keys.space = false;
             });
 
-            // Mouse orbit for desktop camera
             window.addEventListener('mousedown', (e) => { isMouseDown = true; mouseX = e.clientX; mouseY = e.clientY; });
             window.addEventListener('mouseup', () => { isMouseDown = false; });
             window.addEventListener('mousemove', (e) => {
@@ -647,7 +644,6 @@
 
             document.getElementById('btn-sprint').addEventListener('touchstart', () => { keys.shift = !keys.shift; });
 
-            // Camera touch drag for mobile
             let camTouchId = null, lastCamX = 0, lastCamY = 0;
             document.getElementById('cam-touch-area').addEventListener('touchstart', (e) => {
                 const touch = e.changedTouches[0];
@@ -692,7 +688,6 @@
             const dt = Math.min(clock.getDelta(), 0.1);
 
             if (gameState === 'playing' && playerMesh) {
-                // Movement vector calculation
                 let moveX = 0, moveZ = 0;
                 if (keys.w) moveZ -= 1;
                 if (keys.s) moveZ += 1;
@@ -711,7 +706,6 @@
                     playerMesh.rotation.y = angle;
                 }
 
-                // Gravity & Grounding
                 playerVelY -= 18 * dt;
                 playerMesh.position.y += playerVelY * dt;
                 if (playerMesh.position.y <= 0.5) {
@@ -720,14 +714,12 @@
                     isGrounded = true;
                 }
 
-                // Island boundary enforcement
                 const distFromCenter = Math.sqrt(playerMesh.position.x**2 + playerMesh.position.z**2);
                 if (distFromCenter > 95) {
                     playerMesh.position.x *= 0.98;
                     playerMesh.position.z *= 0.98;
                 }
 
-                // Camera follow update
                 const targetPos = playerMesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
                 if (cameraMode === 'third') {
                     const camDist = 6;
@@ -737,13 +729,11 @@
                     camera.position.set(cx, Math.max(0.5, cy), cz);
                     camera.lookAt(targetPos);
                 } else {
-                    // First person
                     camera.position.copy(targetPos);
                     const lookTarget = targetPos.clone().add(new THREE.Vector3(Math.sin(playerYaw)*10, playerPitch*5, Math.cos(playerYaw)*10));
                     camera.lookAt(lookTarget);
                 }
 
-                // Check nearest interactable item
                 nearestInteractable = null;
                 let minDist = 3.5;
                 for (let item of interactables) {
@@ -763,7 +753,6 @@
                     prompt.style.display = 'none';
                 }
 
-                // Rain animation if storm mode active
                 if (rainParticles && rainParticles.visible) {
                     const positions = rainParticles.geometry.attributes.position.array;
                     for (let i = 1; i < positions.length; i += 3) {
