@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ISLAND: A FATHER'S PROMISE - PHASE 3 (Cinematic Edition)</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; background: #0b0f19; color: #f3f4f6; }
+        #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+
+        /* UI Overlays */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle at center, rgba(11,15,25,0.85) 0%, rgba(3,5,10,0.95) 100%); transition: opacity 0.5s ease; }
+        .screen.hidden { opacity: 0; pointer-events: none; }
+
+        .title-card { text-align: center; max-width: 650px; padding: 2rem; background: rgba(17, 24, 39, 0.75); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 16px; backdrop-filter: blur(12px); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+        .title-card h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: 2px; color: #f59e0b; margin-bottom: 0.5rem; text-shadow: 0 2px 10px rgba(245,158,11,0.4); }
+        .title-card h2 { font-size: 1.1rem; font-weight: 400; color: #9ca3af; margin-bottom: 2rem; letter-spacing: 1px; }
+
+        .btn { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; font-weight: 700; padding: 0.9rem 2rem; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(245,158,11,0.4); text-transform: uppercase; letter-spacing: 1px; margin: 0.5rem; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245,158,11,0.6); background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); }
+        .btn-secondary { background: rgba(55, 65, 81, 0.8); border: 1px solid rgba(156, 163, 175, 0.3); box-shadow: none; }
+        .btn-secondary:hover { background: rgba(75, 85, 99, 0.9); }
+
+        /* Character Selection Grid */
+        .char-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 100%; max-width: 800px; margin-bottom: 2rem; }
+        .char-card { background: rgba(31, 41, 55, 0.8); border: 2px solid rgba(75, 85, 99, 0.5); border-radius: 12px; padding: 1.5rem; text-align: left; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden; }
+        .char-card:hover, .char-card.selected { border-color: #f59e0b; background: rgba(31, 41, 55, 0.95); transform: translateY(-4px); box-shadow: 0 10px 25px rgba(245,158,11,0.2); }
+        .char-card h3 { font-size: 1.3rem; color: #f3f4f6; margin-bottom: 0.3rem; }
+        .char-card .role { font-size: 0.85rem; color: #f59e0b; font-weight: 600; text-transform: uppercase; margin-bottom: 0.8rem; letter-spacing: 1px; }
+        .char-card p { font-size: 0.9rem; color: #9ca3af; line-height: 1.4; margin-bottom: 1rem; }
+        .char-card ul { font-size: 0.85rem; color: #d1d5db; padding-left: 1.2rem; }
+        .char-card ul li { margin-bottom: 0.3rem; }
+
+        /* HUD Overlay */
+        #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; }
+        .hud-interactive { pointer-events: auto; }
+        .hud-top { display: flex; justify-content: space-between; align-items: flex-start; }
+        .mission-box { background: rgba(17, 24, 39, 0.8); border-left: 4px solid #f59e0b; padding: 1rem; border-radius: 0 8px 8px 0; backdrop-filter: blur(8px); max-width: 320px; }
+        .mission-box h4 { font-size: 0.8rem; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.2rem; }
+        .mission-box p { font-size: 0.95krem; font-weight: 500; color: #f3f4f6; }
+
+        .hud-right { display: flex; flex-direction: column; gap: 0.8rem; align-items: flex-end; }
+        .stat-badge { background: rgba(17, 24, 39, 0.8); padding: 0.6rem 1rem; border-radius: 8px; backdrop-filter: blur(8px); font-size: 0.9rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 0.5rem; }
+
+        /* HUD Bottom */
+        .hud-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+        .controls-hint { background: rgba(17, 24, 39, 0.8); padding: 0.8rem 1.2rem; border-radius: 8px; font-size: 0.85rem; color: #9ca3af; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.05); }
+        .controls-hint span { color: #f59e0b; font-weight: 600; }
+
+        /* Interaction Prompt */
+        #interaction-prompt { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); background: rgba(17, 24, 39, 0.9); border: 1px solid #f59e0b; padding: 0.8rem 1.5rem; border-radius: 30px; font-weight: 600; font-size: 0.95rem; display: none; z-index: 8; box-shadow: 0 5px 20px rgba(0,0,0,0.5); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.03); } 100% { transform: translate(-50%, -50%) scale(1); } }
+
+        /* Dialogue Modal */
+        #dialogue-modal { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 600px; background: rgba(17, 24, 39, 0.95); border: 2px solid #f59e0b; border-radius: 12px; padding: 1.5rem; z-index: 9; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.8); backdrop-filter: blur(10px); }
+        #dialogue-modal h3 { color: #f59e0b; margin-bottom: 0.5rem; font-size: 1.1rem; }
+        #dialogue-modal p { font-size: 1rem; line-height: 1.5; color: #e5e7eb; margin-bottom: 1rem; }
+
+        /* Mobile Controls */
+        #mobile-controls { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 6; }
+        .joystick-base { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; pointer-events: auto; touch-action: none; }
+        .joystick-knob { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(245,158,11,0.8); border-radius: 50%; pointer-events: none; transition: transform 0.05s linear; }
+        .action-btns { position: absolute; bottom: 40px; right: 40px; display: flex; gap: 15px; pointer-events: auto; }
+        .action-btn { width: 65px; height: 65px; background: rgba(17,24,39,0.8); border: 2px solid rgba(245,158,11,0.5); border-radius: 50%; color: #f59e0b; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: center; align-items: center; cursor: pointer; backdrop-filter: blur(5px); }
+        .camera-touch-area { position: absolute; top: 0; right: 0; width: 50%; height: 70%; pointer-events: auto; }
+
+        /* Pause & Settings Screen */
+        .menu-box { background: rgba(17, 24, 39, 0.9); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 16px; padding: 2rem; width: 90%; max-width: 450px; text-align: center; backdrop-filter: blur(12px); }
+        .menu-box h2 { color: #f59e0b; margin-bottom: 1.5rem; font-size: 1.8rem; }
+        .setting-group { margin-bottom: 1.2rem; text-align: left; }
+        .setting-group label { display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 1px; }
+        .setting-group select { width: 100%; padding: 0.7rem; background: rgba(31, 41, 55, 0.9); border: 1px solid rgba(75, 85, 99, 0.5); color: #fff; border-radius: 6px; font-size: 1rem; outline: none; }
+
+        #loading-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #03050a; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease; }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(245, 158, 11, 0.2); border-top-color: #f59e0b; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <h2 style="color: #f3f4f6; font-weight: 500; letter-spacing: 1px;">Loading Cinematic Island...</h2>
+        <p id="loading-status" style="color: #9ca3af; font-size: 0.85rem; margin-top: 0.5rem;">Generating procedural assets & shaders</p>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <!-- START SCREEN & CHARACTER SELECT -->
+    <div id="start-screen" class="screen">
+        <div class="title-card">
+            <h1>ISLAND: A FATHER'S PROMISE</h1>
+            <h2>Phase 3 — Cinematic Survival Adventure</h2>
+            <p style="color: #d1d5db; margin-bottom: 1.5rem; font-size: 0.95rem;">Select your survivor role to begin the journey across the tropical shorelines and dense jungles.</p>
+            
+            <div class="char-grid">
+                <div class="char-card selected" id="card-father" onclick="selectCharacter('father')">
+                    <div class="role">Character A</div>
+                    <h3>Edward (Father)</h3>
+                    <p>Adult survivor with high strength and endurance. Able to clear heavy debris and build sturdy shelters.</p>
+                    <ul>
+                        <li>High carrying capacity (15 items)</li>
+                        <li>Starts at Shipwreck Beach</li>
+                        <li>Mission: Clear wreckage & gather timber</li>
+                    </ul>
+                </div>
+                <div class="char-card" id="card-son" onclick="selectCharacter('son')">
+                    <div class="role">Character B</div>
+                    <h3>Leo (Son)</h3>
+                    <p>Young and agile. Can squeeze through tight rock crevices and discover hidden trail clues.</p>
+                    <ul>
+                        <li>Agile movement & fast runner</li>
+                        <li>Starts at Jungle Gorge</li>
+                        <li>Mission: Find fresh spring & mark path</li>
+                    </ul>
+                </div>
+            </div>
+
+            <button class="btn" onclick="startGame()">Begin Expedition</button>
+        </div>
+    </div>
+
+    <!-- PAUSE MENU -->
+    <div id="pause-screen" class="screen hidden">
+        <div class="menu-box">
+            <h2>Game Paused</h2>
+            <div class="setting-group">
+                <label>Graphics Quality (Phase 3)</label>
+                <select id="quality-select" onchange="changeQuality(this.value)">
+                    <option value="low">Low (Performance)</option>
+                    <option value="medium">Medium</option>
+                    <option value="high" selected>High (Cinematic)</option>
+                    <option value="ultra">Ultra (Max Shadows & Flora)</option>
+                </select>
+            </div>
+            <div class="setting-group">
+                <label>Weather Condition</label>
+                <select id="weather-select" onchange="changeWeather(this.value)">
+                    <option value="morning">Morning Golden Hour</option>
+                    <option value="midday" selected>Tropical Midday</option>
+                    <option value="sunset">Dramatic Sunset</option>
+                    <option value="storm">Heavy Rain Storm</option>
+                </select>
+            </div>
+            <button class="btn" onclick="togglePause()">Resume Game</button>
+            <button class="btn btn-secondary" onclick="restartGame()">Restart Expedition</button>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" style="display: none;">
+        <div class="hud-top">
+            <div class="mission-box">
+                <h4 id="hud-mission-title">Current Objective</h4>
+                <p id="hud-mission-desc">Explore the beach and gather resources.</p>
+            </div>
+            <div class="hud-right">
+                <div class="stat-badge">🪵 Driftwood: <span id="stat-wood">0</span></div>
+                <div class="stat-badge">🪨 Stones: <span id="stat-stone">0</span></div>
+                <div class="stat-badge">🍎 Fruit: <span id="stat-fruit">0</span></div>
+                <button class="btn btn-secondary hud-interactive" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; margin: 0;" onclick="toggleCameraView()">Cam: <span id="cam-mode-label">3rd Person</span></button>
+                <button class="btn btn-secondary hud-interactive" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; margin: 0;" onclick="togglePause()">Menu</button>
+            </div>
+        </div>
+        <div class="hud-bottom">
+            <div class="controls-hint" id="desktop-hints">
+                Move: <span>W, A, S, D</span> | Sprint: <span>Shift</span> | Jump: <span>Space</span> | Camera: <span>Mouse Drag</span> | Interact: <span>E</span> | Toggle Cam: <span>C</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="interaction-prompt">Press E or Tap to Interact</div>
+
+    <!-- DIALOGUE MODAL -->
+    <div id="dialogue-modal">
+        <h3 id="dialogue-title">Story Narrative</h3>
+        <p id="dialogue-text">Dialogue content goes here...</p>
+        <button class="btn" onclick="closeDialogue()">Continue</button>
+    </div>
+
+    <!-- MOBILE CONTROLS -->
+    <div id="mobile-controls">
+        <div class="camera-touch-area" id="cam-touch-area"></div>
+        <div class="joystick-base" id="joystick-base">
+            <div class="joystick-knob" id="joystick-knob"></div>
+        </div>
+        <div class="action-btns">
+            <div class="action-btn" id="btn-sprint">SPR</div>
+            <div class="action-btn" id="btn-jump">JMP</div>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME STATE & CONFIG ---
+        let selectedRole = 'father';
+        let gameState = 'start'; // start, playing, paused, dialogue
+        let cameraMode = 'third'; // third, first
+        let graphicsQuality = 'high';
+        let currentWeather = 'midday';
+
+        const stats = { wood: 0, stone: 0, fruit: 0 };
+        const missions = {
+            father: { title: "Mission: Beachhead Shelter", desc: "Gather 3 pieces of driftwood & inspect the shipwreck." },
+            son: { title: "Mission: Jungle Gorge Trail", desc: "Find a freshwater source and leave a chalk marker." }
+        };
+
+        // Input state
+        const keys = { w: false, a: false, s: false, d: false, shift: false, space: false };
+        let mouseX = 0, mouseY = 0, isMouseDown = false;
+        let mobileMove = { x: 0, y: 0 };
+
+        // Three.js Core Globals
+        let scene, camera, renderer, clock;
+        let playerMesh, playerYaw = 0, playerPitch = 0;
+        let playerVelY = 0, isGrounded = false;
+        let interactables = [];
+        let nearestInteractable = null;
+        let terrainMesh, oceanMesh;
+        let dirLight, hemiLight, ambientLight;
+        let rainParticles;
+
+        // Initialize Application
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.opacity = '0';
+                setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 500);
+            }, 800);
+            initThreeScene();
+            setupEventListeners();
+        });
+
+        function selectCharacter(role) {
+            selectedRole = role;
+            document.getElementById('card-father').classList.toggle('selected', role === 'father');
+            document.getElementById('card-son').classList.toggle('selected', role === 'son');
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('hud').style.display = 'flex';
+            
+            // Set initial mission HUD
+            document.getElementById('hud-mission-title').innerText = missions[selectedRole].title;
+            document.getElementById('hud-mission-desc').innerText = missions[selectedRole].desc;
+
+            // Position player based on role
+            if (selectedRole === 'father') {
+                playerMesh.position.set(0, 1.5, 30); // Shipwreck beach
+            } else {
+                playerMesh.position.set(-40, 3, -40); // Jungle gorge
+            }
+
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.getElementById('mobile-controls').style.display = 'block';
+                document.getElementById('desktop-hints').style.display = 'none';
+            }
+
+            // Trigger introductory dialogue
+            if (selectedRole === 'father') {
+                showDialogue("Edward's Log", "The storm destroyed our transport. I need to gather sturdy driftwood from the beach and secure a safe shelter before nightfall.");
+            } else {
+                showDialogue("Leo's Log", "Dad told me to stay put, but I need to find fresh water and mark a safe trail through this gorge so he can find me.");
+            }
+        }
+
+        function togglePause() {
+            if (gameState === 'playing') {
+                gameState = 'paused';
+                document.getElementById('pause-screen').classList.remove('hidden');
+            } else if (gameState === 'paused') {
+                gameState = 'playing';
+                document.getElementById('pause-screen').classList.add('hidden');
+            }
+        }
+
+        function restartGame() {
+            stats.wood = 0; stats.stone = 0; stats.fruit = 0;
+            updateStatsUI();
+            document.getElementById('pause-screen').classList.add('hidden');
+            startGame();
+        }
+
+        function updateStatsUI() {
+            document.getElementById('stat-wood').innerText = stats.wood;
+            document.getElementById('stat-stone').innerText = stats.stone;
+            document.getElementById('stat-fruit').innerText = stats.fruit;
+        }
+
+        function showDialogue(title, text) {
+            const prev = gameState;
+            gameState = 'dialogue';
+            document.getElementById('dialogue-title').innerText = title;
+            document.getElementById('dialogue-text').innerText = text;
+            document.getElementById('dialogue-modal').style.display = 'block';
+        }
+
+        function closeDialogue() {
+            document.getElementById('dialogue-modal').style.display = 'none';
+            gameState = 'playing';
+        }
+
+        function toggleCameraView() {
+            cameraMode = cameraMode === 'third' ? 'first' : 'third';
+            document.getElementById('cam-mode-label').innerText = cameraMode === 'third' ? '3rd Person' : '1st Person';
+            if (playerMesh) playerMesh.visible = (cameraMode === 'third');
+        }
+
+        function changeQuality(val) {
+            graphicsQuality = val;
+            if (!renderer) return;
+            if (val === 'low') {
+                renderer.setPixelRatio(0.75);
+                dirLight.castShadow = false;
+            } else if (val === 'medium') {
+                renderer.setPixelRatio(1.0);
+                dirLight.castShadow = true;
+                dirLight.shadow.mapSize.width = 1024;
+                dirLight.shadow.mapSize.height = 1024;
+            } else if (val === 'high') {
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+                dirLight.castShadow = true;
+                dirLight.shadow.mapSize.width = 2048;
+                dirLight.shadow.mapSize.height = 2048;
+            } else if (val === 'ultra') {
+                renderer.setPixelRatio(window.devicePixelRatio);
+                dirLight.castShadow = true;
+                dirLight.shadow.mapSize.width = 4096;
+                dirLight.shadow.mapSize.height = 4096;
+            }
+        }
+
+        function changeWeather(val) {
+            currentWeather = val;
+            const skyColors = {
+                morning: { sky: 0xfde047, ground: 0x1e3a8a, light: 0xffedd5, intensity: 1.2, fog: 0xc4b5fd },
+                midday:  { sky: 0x38bdf8, ground: 0x166534, light: 0xffffff, intensity: 1.8, fog: 0xbae6fd },
+                sunset:  { sky: 0xf97316, ground: 0x7c2d12, light: 0xfdb_a74, intensity: 1.4, fog: 0xfed7aa },
+                storm:   { sky: 0x334155, ground: 0x0f172a, light: 0x94a3b8, intensity: 0.6, fog: 0x1e293b }
+            };
+            const cfg = skyColors[val];
+            scene.background.setHex(cfg.sky);
+            scene.fog.color.setHex(cfg.fog);
+            hemiLight.color.setHex(cfg.sky);
+            hemiLight.groundColor.setHex(cfg.ground);
+            dirLight.color.setHex(cfg.light);
+            dirLight.intensity = cfg.intensity;
+
+            if (val === 'storm') {
+                if (!rainParticles) createRain();
+                rainParticles.visible = true;
+            } else if (rainParticles) {
+                rainParticles.visible = false;
+            }
+        }
+
+        // --- THREE.JS SCENE SETUP ---
+        function initThreeScene() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x38bdf8);
+            scene.fog = new THREE.FogExp2(0xbae6fd, 0.012);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
+            container.appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+
+            // Lighting
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x166534, 0.8);
+            hemiLight.position.set(0, 50, 0);
+            scene.add(hemiLight);
+
+            dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight.position.set(60, 80, 40);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 300;
+            const d = 80;
+            dirLight.shadow.camera.left = -d;
+            dirLight.shadow.camera.right = d;
+            dirLight.shadow.camera.top = d;
+            dirLight.shadow.camera.bottom = -d;
+            dirLight.shadow.bias = -0.0005;
+            scene.add(dirLight);
+
+            buildIslandWorld();
+            createPlayerAvatar();
+            createRainSystem();
+
+            window.addEventListener('resize', onWindowResize);
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- PROCEDURAL WORLD GENERATION ---
+        function buildIslandWorld() {
+            // Ocean
+            const oceanGeo = new THREE.PlaneGeometry(800, 800, 64, 64);
+            const oceanMat = new THREE.MeshStandardMaterial({
+                color: 0x0284c7,
+                roughness: 0.1,
+                metalness: 0.8,
+                flatShading: true
+            });
+            oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
+            oceanMesh.rotation.x = -Math.PI / 2;
+            oceanMesh.position.y = -0.5;
+            scene.add(oceanMesh);
+
+            // Island Terrain (Layered Heightmap Simulation)
+            const terrainGeo = new THREE.PlaneGeometry(240, 240, 128, 128);
+            terrainGeo.rotateX(-Math.PI / 2);
+            const pos = terrainGeo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i);
+                const z = pos.getZ(i);
+                const dist = Math.sqrt(x*x + z*z);
+                let y = 0;
+                if (dist < 100) {
+                    // Island dome shape with noise
+                    y = Math.cos(dist * Math.PI / 200) * 15 + Math.sin(x * 0.05) * Math.cos(z * 0.05) * 3;
+                    if (y < 0.5) y = 0.5; // Beach line
+                } else {
+                    y = -2; // Underwater dropoff
+                }
+                pos.setY(i, y);
+            }
+            terrainGeo.computeVertexNormals();
+
+            const terrainMat = new THREE.MeshStandardMaterial({
+                color: 0x22c55e,
+                roughness: 0.85,
+                metalness: 0.05,
+                flatShading: true
+            });
+            terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+            terrainMesh.receiveShadow = true;
+            terrainMesh.castShadow = true;
+            scene.add(terrainMesh);
+
+            // Distant Mountains Silhouette
+            const mtnGeo = new THREE.ConeGeometry(70, 50, 8);
+            const mtnMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+            const mountain1 = new THREE.Mesh(mtnGeo, mtnMat);
+            mountain1.position.set(-120, 20, -140);
+            scene.add(mountain1);
+
+            const mountain2 = new THREE.Mesh(new THREE.ConeGeometry(90, 70, 8), mtnMat);
+            mountain2.position.set(100, 25, -160);
+            scene.add(mountain2);
+
+            // Shipwreck on Beach
+            const wreckGroup = new THREE.Group();
+            const hullMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8, metalness: 0.2 });
+            const hull = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 12), hullMat);
+            hull.position.set(0, 1, 35);
+            hull.rotation.y = 0.4;
+            hull.rotation.z = 0.2;
+            hull.castShadow = true;
+            wreckGroup.add(hull);
+            scene.add(wreckGroup);
+
+            // Procedural Vegetation & Palm Trees
+            for (let i = 0; i < 45; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const r = 25 + Math.random() * 65;
+                const px = Math.cos(angle) * r;
+                const pz = Math.sin(angle) * r;
+                createPalmTree(px, pz);
+            }
+
+            // Interactable Resources
+            spawnResource('wood', 5, 30, 2);
+            spawnResource('wood', -8, 28, 5);
+            spawnResource('wood', 12, 35, -2);
+            spawnResource('stone', -15, 20, 1);
+            spawnResource('stone', 18, 22, 3);
+            spawnResource('fruit', 6, 25, 4);
+            spawnResource('fruit', -10, 18, -3);
+        }
+
+        function createPalmTree(x, z) {
+            const tree = new THREE.Group();
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.9 });
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.7, 8, 6), trunkMat);
+            trunk.position.y = 4;
+            trunk.castShadow = true;
+            tree.add(trunk);
+
+            const leavesMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6, side: THREE.DoubleSide });
+            for (let i = 0; i < 5; i++) {
+                const leaf = new THREE.Mesh(new THREE.ConeGeometry(2, 4, 3), leavesMat);
+                leaf.position.y = 7.5;
+                leaf.rotation.z = 0.6;
+                leaf.rotation.y = (i * Math.PI * 2) / 5;
+                tree.add(leaf);
+            }
+            tree.position.set(x, 0, z);
+            scene.add(tree);
+        }
+
+        function spawnResource(type, x, z, yOffset) {
+            let color = 0xd97706; // wood
+            let geo = new THREE.CylinderGeometry(0.2, 0.2, 2, 5);
+            if (type === 'stone') { color = 0x64748b; geo = new THREE.DodecahedronGeometry(0.6); }
+            if (type === 'fruit') { color = 0xef4444; geo = new THREE.SphereGeometry(0.4, 8, 8); }
+
+            const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, yOffset, z);
+            mesh.castShadow = true;
+            scene.add(mesh);
+
+            interactables.push({ type: type, mesh: mesh, collected: false });
+        }
+
+        function createRainSystem() {
+            const count = 1500;
+            const geo = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            for (let i = 0; i < count * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 150;
+                positions[i+1] = Math.random() * 80;
+                positions[i+2] = (Math.random() - 0.5) * 150;
+            }
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const mat = new THREE.PointsMaterial({ color: 0x93c5fd, size: 0.6, transparent: true, opacity: 0.6 });
+            rainParticles = new THREE.Points(geo, mat);
+            rainParticles.visible = false;
+            scene.add(rainParticles);
+        }
+
+        // --- PLAYER AVATAR ---
+        function createPlayerAvatar() {
+            const group = new THREE.Group();
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.7 });
+            const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 1.0, 4, 8), bodyMat);
+            body.position.y = 1.0;
+            body.castShadow = true;
+            group.add(body);
+
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xfbcfe8, roughness: 0.5 });
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), headMat);
+            head.position.y = 1.8;
+            head.castShadow = true;
+            group.add(head);
+
+            playerMesh = group;
+            scene.add(playerMesh);
+        }
+
+        // --- EVENT LISTENERS & CONTROLS ---
+        function setupEventListeners() {
+            window.addEventListener('keydown', (e) => {
+                if (gameState !== 'playing') return;
+                if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.w = true;
+                if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.s = true;
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = true;
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = true;
+                if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = true;
+                if (e.code === 'Space') { keys.space = true; if (isGrounded) { playerVelY = 7; isGrounded = false; } }
+                if (e.code === 'KeyC') toggleCameraView();
+                if (e.code === 'KeyE') checkInteraction();
+                if (e.code === 'Escape') togglePause();
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.w = false;
+                if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.s = false;
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = false;
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = false;
+                if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = false;
+                if (e.code === 'Space') keys.space = false;
+            });
+
+            // Mouse orbit for desktop camera
+            window.addEventListener('mousedown', (e) => { isMouseDown = true; mouseX = e.clientX; mouseY = e.clientY; });
+            window.addEventListener('mouseup', () => { isMouseDown = false; });
+            window.addEventListener('mousemove', (e) => {
+                if (!isMouseDown || gameState !== 'playing') return;
+                const deltaX = e.clientX - mouseX;
+                const deltaY = e.clientY - mouseY;
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                playerYaw -= deltaX * 0.005;
+                playerPitch = Math.max(-0.2, Math.min(1.2, playerPitch - deltaY * 0.005));
+            });
+
+            // Mobile Virtual Joystick Setup
+            const joystickBase = document.getElementById('joystick-base');
+            const joystickKnob = document.getElementById('joystick-knob');
+            let joystickTouchId = null;
+
+            joystickBase.addEventListener('touchstart', (e) => {
+                if (joystickTouchId !== null) return;
+                const touch = e.changedTouches[0];
+                joystickTouchId = touch.identifier;
+            });
+
+            window.addEventListener('touchmove', (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    if (touch.identifier === joystickTouchId) {
+                        const rect = joystickBase.getBoundingClientRect();
+                        const centerX = rect.left + rect.width / 2;
+                        const centerY = rect.top + rect.height / 2;
+                        const dx = touch.clientX - centerX;
+                        const dy = touch.clientY - centerY;
+                        const dist = Math.min(50, Math.sqrt(dx*dx + dy*dy));
+                        const angle = Math.atan2(dy, dx);
+                        joystickKnob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+                        mobileMove.x = (Math.cos(angle) * dist) / 50;
+                        mobileMove.y = (Math.sin(angle) * dist) / 50;
+                    }
+                }
+            });
+
+            window.addEventListener('touchend', (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joystickTouchId) {
+                        joystickTouchId = null;
+                        joystickKnob.style.transform = `translate(0px, 0px)`;
+                        mobileMove.x = 0; mobileMove.y = 0;
+                    }
+                }
+            });
+
+            document.getElementById('btn-jump').addEventListener('touchstart', () => {
+                if (isGrounded && gameState === 'playing') { playerVelY = 7; isGrounded = false; }
+            });
+
+            document.getElementById('btn-sprint').addEventListener('touchstart', () => { keys.shift = !keys.shift; });
+
+            // Camera touch drag for mobile
+            let camTouchId = null, lastCamX = 0, lastCamY = 0;
+            document.getElementById('cam-touch-area').addEventListener('touchstart', (e) => {
+                const touch = e.changedTouches[0];
+                camTouchId = touch.identifier;
+                lastCamX = touch.clientX; lastCamY = touch.clientY;
+            });
+            document.getElementById('cam-touch-area').addEventListener('touchmove', (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    if (touch.identifier === camTouchId) {
+                        const dx = touch.clientX - lastCamX;
+                        const dy = touch.clientY - lastCamY;
+                        lastCamX = touch.clientX; lastCamY = touch.clientY;
+                        playerYaw -= dx * 0.008;
+                        playerPitch = Math.max(-0.2, Math.min(1.2, playerPitch - dy * 0.008));
+                    }
+                }
+            });
+            document.getElementById('cam-touch-area').addEventListener('touchend', (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === camTouchId) camTouchId = null;
+                }
+            });
+        }
+
+        function checkInteraction() {
+            if (nearestInteractable && !nearestInteractable.collected) {
+                nearestInteractable.collected = true;
+                nearestInteractable.mesh.visible = false;
+                if (nearestInteractable.type === 'wood') stats.wood++;
+                if (nearestInteractable.type === 'stone') stats.stone++;
+                if (nearestInteractable.type === 'fruit') stats.fruit++;
+                updateStatsUI();
+                document.getElementById('interaction-prompt').style.display = 'none';
+                nearestInteractable = null;
+            }
+        }
+
+        // --- MAIN GAME LOOP ---
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+            const dt = Math.min(clock.getDelta(), 0.1);
+
+            if (gameState === 'playing' && playerMesh) {
+                // Movement vector calculation
+                let moveX = 0, moveZ = 0;
+                if (keys.w) moveZ -= 1;
+                if (keys.s) moveZ += 1;
+                if (keys.a) moveX -= 1;
+                if (keys.d) moveX += 1;
+
+                moveX += mobileMove.x;
+                moveZ += mobileMove.y;
+
+                const speed = (keys.shift ? 9 : 5) * (selectedRole === 'son' ? 1.2 : 1.0);
+
+                if (moveX !== 0 || moveZ !== 0) {
+                    const angle = Math.atan2(moveX, moveZ) + playerYaw;
+                    playerMesh.position.x += Math.sin(angle) * speed * dt;
+                    playerMesh.position.z += Math.cos(angle) * speed * dt;
+                    playerMesh.rotation.y = angle;
+                }
+
+                // Gravity & Grounding
+                playerVelY -= 18 * dt;
+                playerMesh.position.y += playerVelY * dt;
+                if (playerMesh.position.y <= 0.5) {
+                    playerMesh.position.y = 0.5;
+                    playerVelY = 0;
+                    isGrounded = true;
+                }
+
+                // Island boundary enforcement
+                const distFromCenter = Math.sqrt(playerMesh.position.x**2 + playerMesh.position.z**2);
+                if (distFromCenter > 95) {
+                    playerMesh.position.x *= 0.98;
+                    playerMesh.position.z *= 0.98;
+                }
+
+                // Camera follow update
+                const targetPos = playerMesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+                if (cameraMode === 'third') {
+                    const camDist = 6;
+                    const cx = targetPos.x - Math.sin(playerYaw) * Math.cos(playerPitch) * camDist;
+                    const cz = targetPos.z - Math.cos(playerYaw) * Math.cos(playerPitch) * camDist;
+                    const cy = targetPos.y + Math.sin(playerPitch) * camDist + 1;
+                    camera.position.set(cx, Math.max(0.5, cy), cz);
+                    camera.lookAt(targetPos);
+                } else {
+                    // First person
+                    camera.position.copy(targetPos);
+                    const lookTarget = targetPos.clone().add(new THREE.Vector3(Math.sin(playerYaw)*10, playerPitch*5, Math.cos(playerYaw)*10));
+                    camera.lookAt(lookTarget);
+                }
+
+                // Check nearest interactable item
+                nearestInteractable = null;
+                let minDist = 3.5;
+                for (let item of interactables) {
+                    if (item.collected) continue;
+                    const d = item.mesh.position.distanceTo(playerMesh.position);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearestInteractable = item;
+                    }
+                }
+
+                const prompt = document.getElementById('interaction-prompt');
+                if (nearestInteractable) {
+                    prompt.style.display = 'block';
+                    prompt.innerText = `Press E to collect ${nearestInteractable.type}`;
+                } else {
+                    prompt.style.display = 'none';
+                }
+
+                // Rain animation if storm mode active
+                if (rainParticles && rainParticles.visible) {
+                    const positions = rainParticles.geometry.attributes.position.array;
+                    for (let i = 1; i < positions.length; i += 3) {
+                        positions[i] -= 40 * dt;
+                        if (positions[i] < 0) positions[i] = 80;
+                    }
+                    rainParticles.geometry.attributes.position.needsUpdate = true;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
